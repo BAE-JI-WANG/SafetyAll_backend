@@ -4,7 +4,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/safetyall?connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&characterEncoding=UTF-8}
     username: ${DB_USERNAME:safetyall}
-    # 기본값을 두지 않는다. 설정하지 않으면 시작 시 실패해 실수로 약한 비밀번호로 뜨는 일을 막는다.
+    # 기본값을 두지 않는다. 설정하지 않으면 DB 접속에 실패해 서버가 뜨지 않으므로 약한 기본 비밀번호로 실행될 일이 없다.
     password: ${DB_PASSWORD}
   jpa:
     open-in-view: false
