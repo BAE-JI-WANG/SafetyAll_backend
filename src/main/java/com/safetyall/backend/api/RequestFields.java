@@ -23,10 +23,26 @@ final class RequestFields {
             return null;
         }
         String text = value.strip();
-        if (text.length() > maxLength) {
+        if (text.codePointCount(0, text.length()) > maxLength) {
             throw new InvalidRequestException(name + " must be at most " + maxLength + " characters");
         }
         return text;
+    }
+
+    /**
+     * 작업자 신원(이름/전화/그룹). 안전 보고가 이 값 때문에 버려지면 안 되므로 거부하지 않는다.
+     * 없으면 빈 문자열(서버가 아는 작업자 정보로 채운다), 길면 DB 열 길이에 맞춰 자른다.
+     * VARCHAR(n)은 글자(코드포인트) 수 기준이라 이모지가 쪼개지지 않게 코드포인트로 센다.
+     */
+    static String lenient(String value, int maxLength) {
+        if (value == null) {
+            return "";
+        }
+        String text = value.strip();
+        if (text.codePointCount(0, text.length()) <= maxLength) {
+            return text;
+        }
+        return text.substring(0, text.offsetByCodePoints(0, maxLength));
     }
 
     /** 위도/경도. 없으면 0.0(알 수 없음, 앱의 기존 동작과 동일). NaN/Infinity와 범위 밖은 거부한다. */

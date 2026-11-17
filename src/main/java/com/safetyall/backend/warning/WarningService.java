@@ -8,10 +8,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.safetyall.backend.common.Location;
 import com.safetyall.backend.common.NotFoundException;
 import com.safetyall.backend.config.AppProperties;
-import com.safetyall.backend.worker.Worker;
 import com.safetyall.backend.worker.WorkerReport;
 import com.safetyall.backend.worker.WorkerRepository;
 
@@ -38,8 +36,12 @@ public class WarningService {
      * 설정된 시간(safetyall.warning-dedupe-window) 안에 이미 있으면 새로 만들지 않고 그 경고를 돌려준다.
      */
     @Transactional
-    public WorkerWarning record(WorkerReport report) {
+    public WorkerWarning record(WorkerReport submitted) {
         Instant now = clock.instant();
+        // 경고에는 신원/위치가 비어 있어도 그 작업자가 마지막으로 알려진 정보를 채워 넣는다
+        WorkerReport report = workers.findByDeviceId(submitted.deviceId())
+                .map(submitted::filledFrom)
+                .orElse(submitted);
         Instant since = now.minus(properties.warningDedupeWindow());
         List<WorkerWarning> recent = warnings.findRecentUnresolved(
                 report.deviceId(), report.reason(), since, PageRequest.of(0, 1));
@@ -48,17 +50,7 @@ public class WarningService {
         }
         return warnings.save(new WorkerWarning(
                 report.deviceId(), report.workerName(), report.workerPhoneNum(), report.workerGroup(),
-                report.status(), report.reason(), locationOf(report), now));
-    }
-
-    /** 위치를 못 얻은 보고는 그 작업자가 마지막으로 알려진 위치를 쓴다. */
-    private Location locationOf(WorkerReport report) {
-        if (!report.location().isUnknown()) {
-            return report.location();
-        }
-        return workers.findByDeviceId(report.deviceId())
-                .map(Worker::location)
-                .orElse(Location.UNKNOWN);
+                report.status(), report.reason(), report.location(), now));
     }
 
     /** 담당자가 경고를 처리했다(updateWarningResult). */

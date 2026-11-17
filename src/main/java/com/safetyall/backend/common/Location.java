@@ -5,8 +5,6 @@ package com.safetyall.backend.common;
  */
 public record Location(double latitude, double longitude) {
 
-    public static final Location UNKNOWN = new Location(0.0, 0.0);
-
     public boolean isUnknown() {
         return latitude == 0.0 && longitude == 0.0;
     }

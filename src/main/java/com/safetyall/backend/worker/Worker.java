@@ -24,13 +24,13 @@ public class Worker {
     private String deviceId;
 
     @Column(name = "worker_name", nullable = false, length = 50)
-    private String workerName;
+    private String workerName = "";
 
     @Column(name = "worker_phone_num", nullable = false, length = 30)
-    private String workerPhoneNum;
+    private String workerPhoneNum = "";
 
     @Column(name = "worker_group", nullable = false, length = 50)
-    private String workerGroup;
+    private String workerGroup = "";
 
     @Column(nullable = false, length = 30)
     private String status;
@@ -75,15 +75,15 @@ public class Worker {
     }
 
     private void apply(WorkerReport report, Instant now) {
-        this.workerName = report.workerName();
-        this.workerPhoneNum = report.workerPhoneNum();
-        this.workerGroup = report.workerGroup();
-        this.status = report.status();
-        // 위치를 못 얻은 보고(0, 0)가 마지막으로 알던 위치를 덮어써 지도에서 튀지 않게 한다
-        if (!report.location().isUnknown()) {
-            this.latitude = report.location().latitude();
-            this.longitude = report.location().longitude();
-        }
+        // 비어 있는 신원과 알 수 없는 위치(0, 0)는 마지막으로 알던 값을 유지한다.
+        // 위치를 못 얻은 보고가 지도에서 작업자를 튀게 하거나 이름이 지워지지 않게 하기 위함이다.
+        WorkerReport merged = report.filledFrom(this);
+        this.workerName = merged.workerName();
+        this.workerPhoneNum = merged.workerPhoneNum();
+        this.workerGroup = merged.workerGroup();
+        this.status = merged.status();
+        this.latitude = merged.location().latitude();
+        this.longitude = merged.location().longitude();
         this.updatedAt = now;
     }
 

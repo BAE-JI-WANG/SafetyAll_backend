@@ -306,11 +306,11 @@ class LegacyApiTest {
     class Validation {
 
         @Test
-        void missingRequiredParametersAreRejected() throws Exception {
-            for (String missing : new String[]{"deviceId", "workerName", "workerPhoneNum", "workerGroup", "status"}) {
-                // param()은 값을 추가하므로, 기존 값을 공백으로 교체한다
+        void onlyDeviceIdAndStatusAreRequired() throws Exception {
+            for (String missing : new String[]{"deviceId", "status"}) {
                 MockHttpServletRequestBuilder request = report("insertWorker", "dev-1", "작업시작", "37.5", "127.0")
                         .with(r -> {
+                            // param()은 값을 추가하므로, 기존 값을 공백으로 교체한다
                             r.setParameter(missing, "  ");
                             return r;
                         });
@@ -319,6 +319,60 @@ class LegacyApiTest {
                         .andExpect(jsonPath("$.error").value(true))
                         .andExpect(jsonPath("$.message").value(missing + " is required"));
             }
+        }
+
+        @Test
+        void blankIdentityOnAWarningIsFilledFromTheKnownWorker() throws Exception {
+            insert("dev-1", "37.5", "127.0");
+            // 앱 강제 종료 경로처럼 신원과 위치를 잃은 채 온 안전 보고도 버리지 않는다
+            mvc.perform(post(API).queryParam("apicall", "insertWorkerWarning")
+                            .param("deviceId", "dev-1").param("workerName", "")
+                            .param("workerPhoneNum", " ").param("workerGroup", "")
+                            .param("latitude", "0.0").param("longitude", "0.0")
+                            .param("status", "경고").param("reason", "어플강제종료"))
+                    .andExpect(status().isOk());
+
+            call("selectDReadWarning")
+                    .andExpect(jsonPath("$.DReadWarning[0].workerName").value("홍길동"))
+                    .andExpect(jsonPath("$.DReadWarning[0].workerPhoneNum").value("010-1234-5678"))
+                    .andExpect(jsonPath("$.DReadWarning[0].workerGroup").value("안전팀"))
+                    .andExpect(jsonPath("$.DReadWarning[0].latitude").value(37.5));
+        }
+
+        @Test
+        void blankIdentityFromAnUnknownDeviceIsStoredAsBlank() throws Exception {
+            mvc.perform(post(API).queryParam("apicall", "insertWorkerWarning")
+                            .param("deviceId", "ghost").param("reason", "낙상"))
+                    .andExpect(status().isOk());
+
+            call("selectDReadWarning")
+                    .andExpect(jsonPath("$.DReadWarning", hasSize(1)))
+                    .andExpect(jsonPath("$.DReadWarning[0].workerName").value(""));
+        }
+
+        @Test
+        void blankIdentityOnStatusUpdateKeepsStoredIdentity() throws Exception {
+            insert("dev-1", "37.5", "127.0");
+            mvc.perform(post(API).queryParam("apicall", "updateWorkerStatus")
+                            .param("deviceId", "dev-1").param("status", "미착용"))
+                    .andExpect(status().isOk());
+
+            call("selectWorkerCaution")
+                    .andExpect(jsonPath("$.workersCaution[0].workerName").value("홍길동"))
+                    .andExpect(jsonPath("$.workersCaution[0].latitude").value(37.5));
+        }
+
+        @Test
+        void overlongIdentityIsTruncatedInsteadOfRejected() throws Exception {
+            String name = "가".repeat(60);
+            mvc.perform(report("insertWorker", "dev-1", "작업시작", "37.5", "127.0")
+                            .with(r -> {
+                                r.setParameter("workerName", name);
+                                return r;
+                            }))
+                    .andExpect(status().isOk());
+
+            call("selectWorker").andExpect(jsonPath("$.workers[0].workerName").value("가".repeat(50)));
         }
 
         @Test

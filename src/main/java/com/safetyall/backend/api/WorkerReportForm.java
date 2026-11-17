@@ -1,6 +1,7 @@
 package com.safetyall.backend.api;
 
 import static com.safetyall.backend.api.RequestFields.coordinate;
+import static com.safetyall.backend.api.RequestFields.lenient;
 import static com.safetyall.backend.api.RequestFields.optional;
 import static com.safetyall.backend.api.RequestFields.required;
 
@@ -11,6 +12,9 @@ import com.safetyall.backend.worker.WorkerStatus;
 /**
  * 앱이 보내는 폼 파라미터(insertWorker / updateWorkerStatus / insertWorkerWarning 공통).
  * 값은 전부 문자열로 받아 직접 검증하므로 형식이 틀려도 항상 같은 모양의 400 응답이 나간다.
+ *
+ * 필수는 deviceId, status(경고는 reason)뿐이다. 이름/전화/그룹은 비어 있어도 받아서
+ * 서버가 이미 아는 작업자 정보로 채운다(앱 강제 종료 경로 등에서 빈 값이 올 수 있다).
  */
 record WorkerReportForm(
         String deviceId,
@@ -38,9 +42,9 @@ record WorkerReportForm(
     private WorkerReport report(String status, String reason) {
         return new WorkerReport(
                 required("deviceId", deviceId, 64),
-                required("workerName", workerName, 50),
-                required("workerPhoneNum", workerPhoneNum, 30),
-                required("workerGroup", workerGroup, 50),
+                lenient(workerName, 50),
+                lenient(workerPhoneNum, 30),
+                lenient(workerGroup, 50),
                 status,
                 reason,
                 new Location(coordinate("latitude", latitude, 90), coordinate("longitude", longitude, 180)));
